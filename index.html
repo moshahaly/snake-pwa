@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Snake Game - Mobile</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#4CAF50">
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            touch-action: none;
+            font-family: Arial, sans-serif;
+        }
+        canvas {
+            border: 1px solid black;
+            max-width: 90vw;
+            max-height: 60vh;
+        }
+        .controls {
+            margin-top: 20px;
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left down right";
+            gap: 10px;
+            padding: 10px;
+        }
+        button {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            background-color: #ddd;
+            border: none;
+            border-radius: 10px;
+            touch-action: manipulation;
+        }
+        button:active {
+            background-color: #bbb;
+        }
+        #highScore {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 16px;
+            color: black;
+        }
+        #gameOver {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        #gameOver button {
+            margin-top: 20px;
+            width: 100px;
+            height: 40px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+        #gameOver button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="highScore">High Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls">
+        <button style="grid-area: up" id="up">↑</button>
+        <button style="grid-area: left" id="left">←</button>
+        <button style="grid-area: down" id="down">↓</button>
+        <button style="grid-area: right" id="right">→</button>
+    </div>
+    <div id="gameOver">
+        <h2>Game Over</h2>
+        <p>Your Score: <span id="finalScore"></span></p>
+        <button onclick="restartGame()">Restart</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 20;
+
+        // Set canvas size responsively
+        const maxWidth = window.innerWidth * 0.9;
+        const maxHeight = window.innerHeight * 0.6;
+        canvas.width = Math.floor(maxWidth / gridSize) * gridSize;
+        canvas.height = Math.floor(maxHeight / gridSize) * gridSize;
+
+        const tileCountX = canvas.width / gridSize;
+        const tileCountY = canvas.height / gridSize;
+
+        let snake = [{ x: Math.floor(tileCountX / 2), y: Math.floor(tileCountY / 2) }];
+        let food = {
+            x: Math.floor(Math.random() * tileCountX),
+            y: Math.floor(Math.random() * tileCountY)
+        };
+        let dx = 0;
+        let dy = 0;
+        let score = 0;
+        let highScore = 0;
+
+        // Safely access localStorage
+        try {
+            highScore = localStorage.getItem('snakeHighScore') ? parseInt(localStorage.getItem('snakeHighScore')) : 0;
+        } catch (e) {
+            console.warn('localStorage access denied, using fallback variable.', e);
+        }
+        document.getElementById('highScore').textContent = `High Score: ${highScore}`;
+
+        function draw() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = 'green';
+            snake.forEach(segment => {
+                ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
+            });
+
+            ctx.fillStyle = 'red';
+            ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+
+            ctx.fillStyle = 'black';
+            ctx.font = `${Math.floor(gridSize * 0.8)}px Arial`;
+            ctx.fillText(`Score: ${score}`, 10, gridSize);
+        }
+
+        function update() {
+          
+            const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 1;
+                food = {
+                    x: Math.floor(Math.random() * tileCountX),
+                    y: Math.floor(Math.random() * tileCountY)
+                };
+            } else {
+                snake.pop();
+            }
+
+            if (checkCollision()) {
+                showGameOver();
+                return false;
+            }
+
+            draw();
+            return true;
+        }
+
+        function checkCollision() {
+            const head = snake[0];
+            if (head.x < 0 || head.x >= tileCountX || head.y < 0 || head.y >= tileCountY) {
+                return true;
+            }
+            for (let i = 1; i < snake.length; i++) {
+                if (head.x === snake[i].x && head.y === snake[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function gameLoop() {
+          
+            if (update()) {
+                setTimeout(gameLoop, 200);
+            }
+        }
+
+        function setDirection(newDx, newDy) {
+            if ((dx === 0 && newDx !== 0) || (dy === 0 && newDy !== 0)) {
+                dx = newDx;
+                dy = newDy;
+            }
+        }
+
+        function showGameOver() {
+            if (score > highScore) {
+                highScore = score;
+                try {
+                    localStorage.setItem('snakeHighScore', highScore);
+                } catch (e) {
+                    console.warn('Cannot save to localStorage, keeping in memory only.', e);
+                }
+                document.getElementById('highScore').textContent = `High Score: ${highScore}`;
+            }
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            snake = [{ x: Math.floor(tileCountX / 2), y: Math.floor(tileCountY / 2) }];
+            food = {
+                x: Math.floor(Math.random() * tileCountX),
+                y: Math.floor(Math.random() * tileCountY)
+            };
+            dx = 0;
+            dy = 0;
+            score = 0;
+            draw();
+            gameLoop();
+        }
+
+        document.getElementById('up').addEventListener('touchstart', () => setDirection(0, -1));
+document.getElementById('up').addEventListener('click', () => setDirection(0, -1));
+document.getElementById('down').addEventListener('touchstart', () => setDirection(0, 1));
+document.getElementById('down').addEventListener('click', () => setDirection(0, 1));
+document.getElementById('left').addEventListener('touchstart', () => setDirection(-1, 0));
+document.getElementById('left').addEventListener('click', () => setDirection(-1, 0));
+document.getElementById('right').addEventListener('touchstart', () => setDirection(1, 0));
+document.getElementById('right').addEventListener('click', () => setDirection(1, 0));
+
+
+        document.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+        // Initial draw
+        draw();
+        gameLoop();
+
+        if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(registration => console.log('Service Worker registered:', registration))
+      .catch(error => console.log('Service Worker registration failed:', error));
+  });
+}
+    </script>
+</body>
+</html>
